@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HostelMate Pro</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins',sans-serif; }
+
+body {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color:white;
+}
+
+/* NAV */
+nav {
+    display:flex;
+    justify-content:space-between;
+    padding:20px 40px;
+    background: rgba(0,0,0,0.3);
+}
+
+nav a { margin:0 10px; cursor:pointer; }
+
+/* SECTIONS */
+.section { display:none; padding:20px; }
+.active { display:block; }
+
+/* CARD */
+.card {
+    background: rgba(255,255,255,0.1);
+    padding:20px;
+    border-radius:15px;
+    margin:10px;
+}
+
+/* FORM */
+input, select, textarea {
+    width:100%;
+    padding:10px;
+    margin:10px 0;
+    border-radius:10px;
+    border:none;
+}
+
+button {
+    padding:10px;
+    background:#00c6ff;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.status { padding:5px 10px; border-radius:10px; }
+.pending { background:orange; }
+.resolved { background:green; }
+
+.container {
+    display:flex;
+    gap:20px;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+    <h2>🏨 HostelMate</h2>
+    <div id="nav"></div>
+</nav>
+
+<!-- LOGIN -->
+<div id="login" class="section active">
+    <div class="card">
+        <h2>Login</h2>
+        <input id="loginUser" placeholder="Username">
+        <input id="loginPass" type="password" placeholder="Password">
+
+        <select id="loginRole">
+            <option value="student">Student</option>
+            <option value="warden">Warden</option>
+            <option value="admin">Admin</option>
+        </select>
+
+        <button onclick="login()">Login</button>
+        <p onclick="show('signup')" style="cursor:pointer;color:#00c6ff">Create Account</p>
+    </div>
+</div>
+
+<!-- SIGNUP -->
+<div id="signup" class="section">
+    <div class="card">
+        <h2>Sign Up</h2>
+        <input id="suUser" placeholder="Username">
+        <input id="suPass" type="password" placeholder="Password">
+
+        <select id="suRole">
+            <option value="student">Student</option>
+            <option value="warden">Warden</option>
+            <option value="admin">Admin</option>
+        </select>
+
+        <button onclick="signup()">Register</button>
+        <p onclick="show('login')" style="cursor:pointer;color:#00c6ff">Back to Login</p>
+    </div>
+</div>
+
+<!-- STUDENT -->
+<div id="student" class="section">
+    <h2>Student Dashboard</h2>
+    <div class="container">
+        <div class="card">
+            <h3>Register Complaint</h3>
+            <form id="form">
+                <input id="name" placeholder="Name">
+                <input id="room" placeholder="Room">
+                <textarea id="desc"></textarea>
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>My Complaints</h3>
+            <div id="list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- WARDEN -->
+<div id="warden" class="section">
+    <h2>Warden Panel</h2>
+    <div id="wardenList"></div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin" class="section">
+    <h2>Admin Panel</h2>
+    <p>Manage users and monitor system</p>
+</div>
+
+<script>
+
+let users = {};
+let currentRole = "";
+
+// NAVIGATION
+function show(id){
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+}
+
+// SIGNUP
+function signup(){
+    users[suUser.value] = {pass:suPass.value, role:suRole.value};
+    alert("Registered!");
+    show("login");
+}
+
+// LOGIN
+function login(){
+    let u = loginUser.value;
+    let p = loginPass.value;
+    let r = loginRole.value;
+
+    if(users[u] && users[u].pass===p && users[u].role===r){
+        currentRole = r;
+        loadNav();
+        show(r);
+        loadData();
+    } else {
+        alert("Invalid login");
+    }
+}
+
+// NAVBAR
+function loadNav(){
+    let nav = document.getElementById("nav");
+
+    if(currentRole==="student"){
+        nav.innerHTML = `
+            <a onclick="show('student')">Student</a>
+            <a onclick="logout()">Logout</a>
+        `;
+    }
+
+    if(currentRole==="warden"){
+        nav.innerHTML = `
+            <a onclick="show('warden')">Warden</a>
+            <a onclick="logout()">Logout</a>
+        `;
+    }
+
+    if(currentRole==="admin"){
+        nav.innerHTML = `
+            <a onclick="show('admin')">Admin</a>
+            <a onclick="logout()">Logout</a>
+        `;
+    }
+}
+
+// LOGOUT
+function logout(){
+    location.reload();
+}
+
+// SUBMIT (STUDENT)
+form.addEventListener("submit", function(e){
+    e.preventDefault();
+
+    const data = {
+        name:name.value,
+        room:room.value,
+        type:"General",
+        description:desc.value
+    };
+
+    fetch("/api/complaints/add",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(data)
+    })
+    .then(res=>res.json())
+    .then(c=>{
+        display(c);
+    });
+});
+
+// DISPLAY
+function display(c){
+    const html = `
+        <p>ID:${c.id} | ${c.description} | ${c.status}
+        <button onclick="resolve(${c.id})">Resolve</button></p>
+    `;
+
+    list.innerHTML += html;
+    wardenList.innerHTML += html;
+}
+
+// LOAD DATA
+function loadData(){
+    fetch("/api/complaints/all")
+    .then(res=>res.json())
+    .then(data=>{
+        list.innerHTML="";
+        wardenList.innerHTML="";
+        data.forEach(display);
+    });
+}
+
+// RESOLVE
+function resolve(id){
+    fetch(`/api/complaints/update/${id}`,{method:"PUT"})
+    .then(()=>loadData());
+}
+
+</script>
+
+</body>
+</html>
